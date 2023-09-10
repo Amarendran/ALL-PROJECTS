@@ -141,7 +141,7 @@ EQData['5D_Low']=EQData.groupby('SYMBOL',as_index=False,group_keys=False).apply(
 EQData['20DMA']=EQData.groupby('SYMBOL',as_index=False,group_keys=False).apply(get_rolling,20,'CLOSE','mean')
 EQData['20D_High']=EQData.groupby('SYMBOL',as_index=False,group_keys=False).apply(get_rolling,20,'HIGH','max')
 EQData['20D_Low']=EQData.groupby('SYMBOL',as_index=False,group_keys=False).apply(get_rolling,20,'LOW','min')
-EQData['20D_Mid']=EQData['20D_High']+EQData['20D_Low']
+EQData['20D_Mid']=(EQData['20D_High']+EQData['20D_Low'])/2
 EQData['365D_High']=EQData.groupby('SYMBOL',as_index=False,group_keys=False).apply(get_rolling,365,'HIGH','max')
 EQData['365D_Low']=EQData.groupby('SYMBOL',as_index=False,group_keys=False).apply(get_rolling,365,'LOW','min')
 EQData['9DMA']=EQData.groupby('SYMBOL',as_index=False,group_keys=False).apply(get_rolling,9,'CLOSE','mean')
@@ -192,8 +192,8 @@ EQData['PIVOT_Bearish_Rank']=np.where(EQData['CLOSE']<EQData['S1'], 1, 0)+np.whe
 #EQData['20D_High'] 'Donchain high 20days
 #EQData['20D_Low'] ' Donchain low 20days
 #EQData['20D_Mid'] ' Donchain mid 20days
-EQData['DC_Bulish_Rank']=np.where(EQData['CLOSE']>EQData['20D_Mid'], 1, 0)+np.where(EQData['HIGH']>EQData['20D_High'], 1, 0)
-EQData['DC_Bearish_Rank']=np.where(EQData['CLOSE']<EQData['20D_Mid'], 1, 0)+np.where(EQData['LOW']<EQData['20D_Low'], 1, 0)
+EQData['DC_Bulish_Rank']=np.where(EQData['CLOSE']>EQData['20D_Mid'], 1, 0)+np.where(EQData['HIGH']==EQData['20D_High'], 1, 0)
+EQData['DC_Bearish_Rank']=np.where(EQData['CLOSE']<EQData['20D_Mid'], 1, 0)+np.where(EQData['LOW']==EQData['20D_Low'], 1, 0)
 
 ##KEY INDICATOR NETWORK HEALTH
 #5Day Close
@@ -221,7 +221,7 @@ EQData['LOW>2D_Low_close>20DMA']=np.where(np.logical_and(EQData['LOW']>EQData['2
 EQData['CLOSE>CLOSE_20D_shifted']=np.where(EQData['CLOSE']>EQData['CLOSE_20D_shifted'], 1, 0)
 print("EQBA2")
 EQData['<5%_%Below_365D_High']=np.where(EQData['%Below_365D_High']<5, 2, 0)
-EQData['<20%Away_365D_High']=np.where(EQData['%Below_365D_High']>20, -3, 0)
+EQData['>20%Away_365D_High']=np.where(EQData['%Below_365D_High']>20, -3, 0)
 print("EQBA3")
 #EQData['RSI>60_CLOSE20Dshifted>5%']=np.where(np.logical_and(EQData['RSI']>=60, EQData['CLOSE_20D_shifted_percent']>3,EQData['CLOSE']>=EQData['20DMA']), 1, 0)
 EQData['RSI>60_CLOSE20Dshifted>5%']=np.where((EQData['RSI']>=60)&(EQData['CLOSE_20D_shifted_percent']>3)&(EQData['CLOSE']>=EQData['20DMA']), 1, 0)
