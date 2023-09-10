@@ -16,7 +16,7 @@ import glob
 import pandas as pd
 import numpy as np
 #import datetime
-import time
+import time 
 
 starttime=time.time()
 
@@ -49,8 +49,8 @@ path='C:/nse_download/Parsed_Output/'
 #os.getcwd()
 
 #read csv file and drop off Week,Year
-#EQData=pd.read_csv(path+"combined_csv_Week.csv")
-EQData=pd.read_csv(path+"combined_csv_Month.csv")
+#combined_csv=pd.read_csv(path+"combined_csv_Week.csv")
+combined_csv=pd.read_csv(path+"combined_csv_Month.csv")
 
 # extension = 'csv'
 # all_filenames = [i for i in glob.glob('*.{}'.format(extension))]
