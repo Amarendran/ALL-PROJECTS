@@ -42,6 +42,7 @@ def get_rolling(group, freq, testa,funct):
 #path='C:/Users/eamalok/Desktop/POWER  BI/Python coding/jupyter_test/'
 os.chdir("C:/nse_download/download")
 path='C:/nse_download/Weekly/'
+path2='C:/nse_download/Parsed_Output/'
 #os.getcwd()
 
 extension = 'csv'
@@ -113,6 +114,9 @@ combined_csv_Week.to_csv(path+"combined_csv_Week_"+Week_Range+".csv", index=Fals
 combined_csv_Month.to_csv(path+"combined_csv_Month_"+Month_Range+".csv", index=False, encoding='utf-8-sig')
 combined_csv_quarter.to_csv(path+"combined_csv_Quarter_"+Quarter_Range+".csv", index=False, encoding='utf-8-sig')
 combined_csv_Year.to_csv(path+"combined_csv_Year_"+Year_Range+".csv", index=False, encoding='utf-8-sig')
+
+combined_csv_Week.to_csv(path2+"combined_csv_Week.csv", index=False, encoding='utf-8-sig')
+combined_csv_Month.to_csv(path2+"combined_csv_Month.csv", index=False, encoding='utf-8-sig')
 
 
 Endtime=time.time()

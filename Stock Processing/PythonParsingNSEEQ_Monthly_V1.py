@@ -48,13 +48,20 @@ os.chdir("C:/nse_download/download")
 path='C:/nse_download/Parsed_Output/'
 #os.getcwd()
 
-extension = 'csv'
-all_filenames = [i for i in glob.glob('*.{}'.format(extension))]
-combined_csv = pd.concat([pd.read_csv(f) for f in all_filenames],sort=False)
+#read csv file and drop off Week,Year
+#EQData=pd.read_csv(path+"combined_csv_Week.csv")
+EQData=pd.read_csv(path+"combined_csv_Month.csv")
+
+# extension = 'csv'
+# all_filenames = [i for i in glob.glob('*.{}'.format(extension))]
+# combined_csv = pd.concat([pd.read_csv(f) for f in all_filenames],sort=False)
 
 ##To save the combined file to Specific folder removing last column
 
 combined_csv.drop(combined_csv.columns[combined_csv.columns.str.contains('unnamed',case = False)],axis = 1, inplace = True)
+combined_csv.drop(combined_csv.columns[combined_csv.columns.str.contains('Week_Number',case = False)],axis = 1, inplace = True)
+combined_csv.drop(combined_csv.columns[combined_csv.columns.str.contains('Month',case = False)],axis = 1, inplace = True)
+
 #combined_csv=combined_csv.iloc[:,:-1]
 combined_csv['TIMESTAMP'] = pd.to_datetime(combined_csv['TIMESTAMP'])
 combined_csv['Year'] = combined_csv['TIMESTAMP'].apply(lambda x: str(x.year))
@@ -109,7 +116,7 @@ if WithFO=="Yes" :
     FOBaseFileData.drop(FOBaseFileData.columns.difference(['SYMBOL','Year','FOMode']), axis=1, inplace=True)
     FOBaseFileData['Year']=FOBaseFileData['Year'].astype(str)
     EQData['Year']=EQData['Year'].astype(str)
-    #EQData = pd.merge(EQData, FOBaseFileData, how='Left', left_on=['SYMBOL','Year'], right_on = ['SYMBOL','Year']) #use how='left' for left join, inner for overlap
+    #EQData = pd.merge(EQData, FOBaseFileData, how='left', left_on=['SYMBOL','Year'], right_on = ['SYMBOL','Year']) #use how='left' for left join, inner for overlap
     EQData = pd.merge(EQData, FOBaseFileData, how='left', left_on=['SYMBOL','Year'], right_on = ['SYMBOL','Year']) #use how='left' for left join, inner for overlap
 
 
@@ -236,80 +243,8 @@ EQData['UltraBull_RSI_UPBB_BAND_8']=EQData['UltraBull_Vol_Low_1YRhigh_7']+EQData
 print("ULTRABULLend")
 ##----Choose which export we need to analyse in excel
 ##To export the full table to csv
-###<-><-><-><-><-><-><->###EQData.to_csv(path+"combined_csv_processed_output.csv", index=False, encoding='utf-8-sig')
-
-##--To export the data as years_Excluding the first year for the purpose of 365 days max
-EQDataYear=EQData.Year.drop_duplicates().sort_values(ascending=True).reset_index(drop=True)
-for i in EQDataYear[1:]:
-    EQData[EQData.Year == i].to_csv(path+i+"combined_csv_processed_output.csv", index=False, encoding='utf-8-sig')
-#To export the last 30 days table to csv
-#EQData[EQData.TIMESTAMP > datetime.datetime.now()- pd.to_timedelta("30day")].to_csv(path+"combined_csv_processed_output.csv", index=False, encoding='utf-8-sig')
-
-#To export the last 30 days for specific symbols to csv
-#EQData[((EQData.SYMBOL=='3MINDIA') | (EQData.SYMBOL=='ABCAPITAL'))&(EQData.TIMESTAMP > datetime.datetime.now()- pd.to_timedelta("30day"))].to_csv(path+"combined_csv_processed_output.csv")
-
-##----Creating a pivort table
-#pd.pivot_table(df, values = 'Value', index=['Country','Year'], columns = 'Indicator').reset_index()
-print("Pivot")
-EQBullish=pd.pivot_table(EQData, values = 'UltraBull_RSI_UPBB_BAND_8', index=['SYMBOL'], columns = 'Week_Number',aggfunc=['mean'],margins=True).reset_index()
-EQBullishYear=pd.pivot_table(EQData, values = 'UltraBull_RSI_UPBB_BAND_8', index=['SYMBOL'], columns = 'Year',aggfunc=['mean'],margins=True).reset_index()
-EQBullishMonth=pd.pivot_table(EQData, values = 'UltraBull_RSI_UPBB_BAND_8', index=['SYMBOL'], columns = 'Month',aggfunc=['mean'],margins=True).reset_index()
-
-#Close updates
-EQDataWeekRaw=EQData.drop_duplicates(['SYMBOL','Week_Number'],keep= 'last')
-EQDataMonthRaw=EQData.drop_duplicates(['SYMBOL','Month'],keep= 'last')
-EQDataYearRaw=EQData.drop_duplicates(['SYMBOL','Year'],keep= 'last')
-
-EQBullishClose=pd.pivot_table(EQDataWeekRaw, values = 'CLOSE', index=['SYMBOL'], columns = 'Week_Number',aggfunc=[np.mean],margins=True).reset_index()
-EQBullishCloseYear=pd.pivot_table(EQDataYearRaw, values = 'CLOSE', index=['SYMBOL'], columns = 'Year',aggfunc=[np.mean],margins=True).reset_index()
-EQBullishCloseMonth=pd.pivot_table(EQDataMonthRaw, values = 'CLOSE', index=['SYMBOL'], columns = 'Month',aggfunc=[np.mean],margins=True).reset_index()
-#to set symbol as index
-EQBullish.set_index('SYMBOL', inplace = True)
-EQBullishYear.set_index('SYMBOL', inplace = True)
-EQBullishMonth.set_index('SYMBOL', inplace = True)
-EQBullishClose.set_index('SYMBOL', inplace = True)
-EQBullishCloseYear.set_index('SYMBOL', inplace = True)
-EQBullishCloseMonth.set_index('SYMBOL', inplace = True)
-
-#to drop last row
-EQBullish.drop(EQBullish.tail(1).index,inplace=True)
-EQBullishYear.drop(EQBullishYear.tail(1).index,inplace=True)
-EQBullishMonth.drop(EQBullishMonth.tail(1).index,inplace=True)
-EQBullishClose.drop(EQBullishClose.tail(1).index,inplace=True)
-EQBullishCloseMonth.drop(EQBullishCloseMonth.tail(1).index,inplace=True)
-EQBullishCloseYear.drop(EQBullishCloseYear.tail(1).index,inplace=True)
-#to drop top index with sum
-EQBullish.columns = EQBullish.columns.droplevel(0)
-EQBullishYear.columns = EQBullishYear.columns.droplevel(0)
-EQBullishMonth.columns = EQBullishMonth.columns.droplevel(0)
-EQBullishClose.columns = EQBullishClose.columns.droplevel(0)
-EQBullishCloseYear.columns = EQBullishCloseYear.columns.droplevel(0)
-EQBullishCloseMonth.columns = EQBullishCloseMonth.columns.droplevel(0)
-
-##---export the pivort table to the csv
-###<-><-><-><-><-><-><->###EQBullish.to_csv(path+"combined_csv_processed_output_pivort.csv")
-
-##---To see the last 6 weeks and total
-###<-><-><-><-><-><-><->###EQBullish[EQBullish.columns[-7:]].to_csv(path+"combined_csv_processed_output_pivort.csv")
-print("pivot kpi")
-EQBullish['2W']=EQBullish.iloc[:,-3:-1].sum(axis=1)
-EQBullish['4W']=EQBullish.iloc[:,-6:-2].sum(axis=1)
-EQBullish['12W']=EQBullish.iloc[:,-15:-3].sum(axis=1)
-EQBullish['2WAvg']=EQBullish['2W']/2
-EQBullish['4WAvg']=EQBullish['4W']/4
-EQBullish['12WAvg']=EQBullish['12W']/12
-EQBullish['BullCriteria']=np.where(np.logical_and(EQBullish['2WAvg']>=EQBullish['4WAvg'], EQBullish['4WAvg']>=EQBullish['12WAvg']), 1, 0)
-
-###<-><-><-><-><-><-><->###EQBullish[EQBullish.columns[-20:]].to_csv(path+"combined_csv_processed_output_pivort.csv")
-print("pivot export")
-EQBullish.to_csv(path+"combined_csv_processed_output_pivort_week.csv", encoding='utf-8-sig')
-EQBullishYear.to_csv(path+"combined_csv_processed_output_pivort_Year.csv", encoding='utf-8-sig')
-EQBullishMonth.to_csv(path+"combined_csv_processed_output_pivort_Month.csv", encoding='utf-8-sig')
-EQBullishClose.to_csv(path+"combined_csv_processed_output_close_pivort_week.csv", encoding='utf-8-sig')
-EQBullishCloseYear.to_csv(path+"combined_csv_processed_output_close_pivort_Year.csv", encoding='utf-8-sig')
-EQBullishCloseMonth.to_csv(path+"combined_csv_processed_output_close_pivort_Month.csv", encoding='utf-8-sig')
+EQData.to_csv(path+i+"combined_csv_processed_output_Monthly.csv", index=False, encoding='utf-8-sig')
 
 Endtime=time.time()
 
 print("Starttime:",starttime,"\n","Endtime:",Endtime,"\n","DeltatimeSec:",Endtime-starttime,"\n","DeltatimeMin:",(Endtime-starttime)/60)
-
