@@ -40,7 +40,8 @@ path='C:/nse_download/Parsed_Output/'
 combined_csv.to_csv(path+"combined_delivery_csv.csv", index=False, encoding='utf-8-sig')
 
 ##read the combined file
-EQDeliveryData=pd.read_csv(path+"combined_delivery_csv.csv")
+#EQDeliveryData=pd.read_csv(path+"combined_delivery_csv.csv")
+EQDeliveryData=combined_csv
 
 EQDeliveryData=EQDeliveryData[EQDeliveryData.SERIES=='EQ']
 
@@ -57,6 +58,10 @@ EQDeliveryData = EQDeliveryData.sort_values(by='Date', ascending=True)
 
 ##delivery percentage
 EQDeliveryData['1DDMA']=EQDeliveryData['% of Deliverable Quantity']
+EQDeliveryData["3DDMA_Den"]=EQDeliveryData.groupby("Name of Security",as_index=False,group_keys=False).apply(get_rolling,3,"Quantity Traded","sum")
+EQDeliveryData['3DDMA_Num']=EQDeliveryData.groupby('Name of Security',as_index=False,group_keys=False).apply(get_rolling,3,'Deliverable Quantity','sum')
+EQDeliveryData['3DDMA1']=100*EQDeliveryData['3DDMA_Num']/EQDeliveryData['3DDMA_Den']
+
 EQDeliveryData['3DDMA']=100*EQDeliveryData.groupby('Name of Security',as_index=False,group_keys=False).apply(get_rolling,3,'Deliverable Quantity','sum')/EQDeliveryData.groupby('Name of Security',as_index=False,group_keys=False).apply(get_rolling,3,'Quantity Traded','sum')
 EQDeliveryData['5DDMA']=100*EQDeliveryData.groupby('Name of Security',as_index=False,group_keys=False).apply(get_rolling,5,'Deliverable Quantity','sum')/EQDeliveryData.groupby('Name of Security',as_index=False,group_keys=False).apply(get_rolling,5,'Quantity Traded','sum')
 EQDeliveryData['8DDMA']=100*EQDeliveryData.groupby('Name of Security',as_index=False,group_keys=False).apply(get_rolling,8,'Deliverable Quantity','sum')/EQDeliveryData.groupby('Name of Security',as_index=False,group_keys=False).apply(get_rolling,8,'Quantity Traded','sum')

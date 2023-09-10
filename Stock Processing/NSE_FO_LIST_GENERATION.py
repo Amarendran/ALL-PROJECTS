@@ -44,6 +44,7 @@ else:
 combined_csv['TIMESTAMP'] = pd.to_datetime(combined_csv['TIMESTAMP'])
 combined_csv['Year'] = combined_csv['TIMESTAMP'].apply(lambda x: str(x.year))
 combined_csv['FOMode'] = combined_csv['OPTION_TYP']
+combined_csv=combined_csv[combined_csv.FOMode=='XX']
 
 #Logic for aggregation for CE,PE & Future with seperate instrument
 logic = {'CONTRACTS': 'sum',
