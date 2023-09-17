@@ -6,7 +6,7 @@ from urllib import error
 import pandas as pd
 
 # Specify the start date and end date for the range
-start_date = datetime(2023, 8, 14) #yyyymmdd
+start_date = datetime(2023, 9, 18) #yyyymmdd
 end_date = datetime.today()
 
 # Loop through the range of dates and download the corresponding CSV files
