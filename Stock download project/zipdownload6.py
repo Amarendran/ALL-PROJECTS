@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from urllib import error
 
 # Specify the start date and end date for the range
-start_date = datetime(2023, 9, 18)
+start_date = datetime(2023, 12, 18)
 end_date = datetime.today() #yyyymmdd
 
 # Loop through the range of dates and download the corresponding CSV files
