@@ -39,6 +39,9 @@ combined_csv = pd.concat([pd.read_csv(f) for f in all_filenames])
 path='C:/nse_download/Parsed_Output/'
 combined_csv.to_csv(path+"combined_delivery_csv.csv", index=False, encoding='utf-8-sig')
 
+#to save one company
+combined_csv[(combined_csv['Name of Security']=='3MINDIA') ].to_csv(path+"3mindia_combined_delivery_csv.csv", index=False, encoding='utf-8-sig')
+
 ##read the combined file
 #EQDeliveryData=pd.read_csv(path+"combined_delivery_csv.csv")
 EQDeliveryData=combined_csv
@@ -89,6 +92,6 @@ RefDate=pd.Timestamp('today').date()+pd.DateOffset(days=dayoffset)
 
 #save the last day data with calculated bulish delivery last 30days
 EQDeliveryData[EQDeliveryData.Date > datetime.datetime.now()- pd.to_timedelta("30day")].to_csv(path+"combined_delivery_csv_processed_output_All.csv", index=False, encoding='utf-8-sig')
-EQDeliveryData[(EQDeliveryData['Date']==RefDate)].to_csv(path+"combined_delivery_csv_processed_output.csv", index=False, encoding='utf-8-sig')
-EQDeliveryData[(EQDeliveryData['BulishDelivery']>=5) &  (EQDeliveryData['Date']==RefDate) & (EQDeliveryData['Quantity Traded']>=100000) & (EQDeliveryData['1DDMA']>=40)].to_csv(path+"combined_delivery_csv_processed_output_pivort.csv", index=False, encoding='utf-8-sig')
+#EQDeliveryData[(EQDeliveryData['Date']==RefDate)].to_csv(path+"combined_delivery_csv_processed_output.csv", index=False, encoding='utf-8-sig')
+#EQDeliveryData[(EQDeliveryData['BulishDelivery']>=5) &  (EQDeliveryData['Date']==RefDate) & (EQDeliveryData['Quantity Traded']>=100000) & (EQDeliveryData['1DDMA']>=40)].to_csv(path+"combined_delivery_csv_processed_output_pivort.csv", index=False, encoding='utf-8-sig')
 
