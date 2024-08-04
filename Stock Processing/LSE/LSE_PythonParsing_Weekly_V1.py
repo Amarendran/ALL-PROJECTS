@@ -1,0 +1,283 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Dec 10 17:07:11 2019
+
+@author: eamalok
+
+'1.load the downloaded file and create a merged file
+'2.Calculate the required moving averages
+'3.Create the points for the symbol
+
+EQData is proceesed table
+EQBullish is Processed pivort table
+"""
+import os
+import glob
+import pandas as pd
+import numpy as np
+#import datetime
+import time
+
+starttime=time.time()
+
+WithFO="No" #mention "Yes" if analysis done only FO series else "No"
+
+
+#To combine the csv files in specific folder
+
+
+#Defining rolling function
+def get_rolling(group, freq, testa,funct):
+    if funct == 'mean':
+        return group.rolling(freq, on='TIMESTAMP',min_periods=1)[testa].mean()
+    elif funct == "max":
+        return group.rolling(freq, on='TIMESTAMP',min_periods=1)[testa].max()
+    elif funct == 'min':
+        return group.rolling(freq, on='TIMESTAMP',min_periods=1)[testa].min()
+    elif funct == 'sum':
+        return group.rolling(freq, on='TIMESTAMP',min_periods=1)[testa].sum()
+    elif funct == 'std':
+        return group.rolling(freq, on='TIMESTAMP',min_periods=1)[testa].std()
+    elif funct == 'count':
+        return group.rolling(freq, on='TIMESTAMP',min_periods=1)[testa].count()
+    else :
+        return 0
+
+##Main code
+os.chdir("D:/nse_download/download")
+path='D:/nse_download/Parsed_Output/'
+path_readcsv='D:/nse_download/ftse_sp_download/'
+path2='D:/nse_download/Parsed_Output/'
+#os.getcwd()
+
+combined_csv=pd.read_csv(path+"ftse_combined_csv_Week.csv")
+#combined_csv=pd.read_csv(path+"sp500_download.csv")
+
+#Add Key informations
+LSEBaseFileData=pd.read_csv(path_readcsv+"LSE_STOCK_Combined.csv")
+LSEBaseFileData["SYMBOL"] = LSEBaseFileData["Code"]+'.L'
+LSEBaseFileData =LSEBaseFileData[['SYMBOL','Company','MarketCap','Stock','FTSE']]
+combined_csv = pd.merge(combined_csv, LSEBaseFileData, how='left', left_on=['SYMBOL'], right_on = ['SYMBOL']) #use how='left' for left join, inner for overlap
+
+##To save the combined file to Specific folder removing last column
+
+combined_csv.drop(combined_csv.columns[combined_csv.columns.str.contains('unnamed',case = False)],axis = 1, inplace = True)
+#combined_csv=combined_csv.iloc[:,:-1]
+combined_csv['TIMESTAMP'] = pd.to_datetime(combined_csv['TIMESTAMP'])
+combined_csv['Year'] = combined_csv['TIMESTAMP'].apply(lambda x: str(x.year))
+combined_csv['Month'] = combined_csv['TIMESTAMP'].apply(lambda x: str(x.year)+"_"+str("{0:0=2d}".format(x.month)))
+
+
+#Clearing the data for stocks less number of trades & average price trading below 10
+combined_csv['CountofDays']=combined_csv.groupby(['SYMBOL','Year'])['CLOSE'].transform('count')
+combined_csv['AvgTradingPrice']=combined_csv.groupby(['SYMBOL','Year'])['CLOSE'].transform('mean')
+combined_csv['CountofDays_Baseline']=0.5*combined_csv.groupby(['Year'])['CountofDays'].transform('mean')
+combined_csv['CountofDays_Baseline_delete']=combined_csv['CountofDays']-combined_csv['CountofDays_Baseline']
+
+combined_csv=combined_csv[combined_csv["CountofDays_Baseline_delete"] > 0]
+combined_csv=combined_csv[combined_csv["AvgTradingPrice"] > 5]
+combined_csv.drop(columns=['Year','Month','CountofDays', 'AvgTradingPrice', 'CountofDays_Baseline', 'CountofDays_Baseline_delete'],inplace=True)
+#combined_csv.to_csv(path+"combined_csv.csv", index=False, encoding='utf-8-sig')
+
+##read the combined file
+#EQData=pd.read_csv(path+"combined_csv.csv") 
+EQData=combined_csv.reset_index(drop=True)
+#EQData.dtypes
+#EQData=EQData[EQData.SERIES=='EQ']
+
+##converting the data into time series and creating the week number and sorting wrt date
+EQData['TIMESTAMP'] = pd.to_datetime(EQData['TIMESTAMP'])
+#EQData['Week_Number'] = EQData['TIMESTAMP'].apply(lambda x: str(x.year)+"_"+str("{0:0=2d}".format(x.weekofyear)))
+#EQData['Week_Number'] = EQData['TIMESTAMP'].apply(lambda x: x.weekofyear)
+EQData['Year'] = EQData['TIMESTAMP'].apply(lambda x: str(x.year))
+EQData['Month'] = EQData['TIMESTAMP'].apply(lambda x: str(x.year)+"_"+str("{0:0=2d}".format(x.month)))
+
+EQData["YearWeek"] = EQData['TIMESTAMP'].apply(lambda x: x.strftime("%W")) #%W for monday start week, %U for sunday start week
+EQData["YearWeekITU"] = EQData['TIMESTAMP'].apply(lambda x: x.weekofyear)
+
+EQData['YearForWeekNo']=np.where(EQData['YearWeek'].astype(int)>EQData['YearWeekITU'], EQData['Year'].astype(int)+1, np.where((EQData['YearWeek'].astype(int)+15)<EQData['YearWeekITU'], EQData['Year'].astype(int)-1,EQData['Year']))
+
+EQData['Week_Number'] = EQData['YearForWeekNo'].astype(str)+"_"+EQData["YearWeekITU"].astype(str).str.zfill(2)
+
+EQData.drop(columns=['YearWeek','YearWeekITU','YearForWeekNo'],inplace=True)
+
+
+#reset index with sorting
+EQData = EQData.sort_values(by='TIMESTAMP', ascending=True)
+EQData.reset_index(drop=True,inplace=True)
+
+#EQData[(EQData.SYMBOL=='3MINDIA') ].head(300)
+#EQData[(EQData.SYMBOL=='3MINDIA') | (EQData.SYMBOL=='ABCAPITAL')].head(300)
+
+#PREVCLOSE calculation, existing one is divident adjusted so naming it as Adjusted close
+EQData.dropna(subset=['CLOSE'], inplace=True)
+EQData['ADJCLOSE'] = EQData['PREVCLOSE']
+EQData['PREVCLOSE'] = EQData.groupby(['SYMBOL'])['CLOSE'].shift(1)
+
+#========================================================================
+#added block
+# compute volatility using Pandas rolling and std methods, the trading days is set to 252 days
+'''
+TRADING_DAYS = 256
+returns = np.log(df['Close']/df['Close'].shift(1))
+returns.fillna(0, inplace=True)
+volatility = returns.rolling(window=TRADING_DAYS).std()*np.sqrt(TRADING_DAYS)
+volatility.tail()
+'''
+
+#New formula Days 256 , wk 53
+TRADING_DAYS = 53
+EQData['RETURNS'] = np.log(EQData['CLOSE']/EQData['PREVCLOSE'])
+EQData.fillna(0, inplace=True)
+EQData['VOLATILITY']=EQData.groupby('SYMBOL',as_index=False,group_keys=False).apply(get_rolling,TRADING_DAYS,'RETURNS','std')*np.sqrt(TRADING_DAYS)*100
+EQData.drop(columns=['RETURNS'],inplace=True)
+
+##Lifetime low volatility
+print("volatility")
+#EQData['VOLATILITY_Life_LOW']=EQData.groupby('SYMBOL').VOLATILITY.cummin()
+EQData['VOLATILITY_LOW']=EQData.groupby('SYMBOL',as_index=False,group_keys=False).apply(get_rolling,250,'VOLATILITY','min')
+EQData['%Above_Vol_Low']=100*(EQData['VOLATILITY']-EQData['VOLATILITY_LOW'])/(EQData['VOLATILITY'])
+EQData['>5%_%Above_Vol_Low']=np.where(EQData['%Above_Vol_Low']<5, 2, 0)
+
+#========================================================================
+
+##RSI calculation
+print("RSI")
+EQData['CLOSE_PERCENT']=(100*(EQData['CLOSE']-EQData['PREVCLOSE'])/EQData['PREVCLOSE'])
+EQData['UpwardMovement']=np.where(EQData['CLOSE_PERCENT']>=0, EQData['CLOSE_PERCENT'], 0)
+EQData['DownwardMovement']=np.where(EQData['CLOSE_PERCENT']<=0, -1*EQData['CLOSE_PERCENT'], 0)
+print("DownwardMovement")
+EQData['20D_UpwardMovement']=EQData.groupby('SYMBOL',as_index=False,group_keys=False).apply(get_rolling,20,'UpwardMovement','mean')
+print("20D1")
+EQData['20D_DownwardMovement']=EQData.groupby('SYMBOL',as_index=False,group_keys=False).apply(get_rolling,20,'DownwardMovement','mean')
+print("20D2")
+EQData['RelativeStrength'] =EQData['20D_UpwardMovement']/EQData['20D_DownwardMovement']
+EQData['RSI']=100-100/(1+EQData['RelativeStrength'])
+EQData['2DSTD'] =EQData.groupby('SYMBOL',as_index=False,group_keys=False).apply(get_rolling,2,'CLOSE','std')
+EQData['BB_LOW_20MA_2STD']=EQData['CLOSE']-EQData['2DSTD']
+EQData['BB_HIGH_20MA_2STD']=EQData['CLOSE']+EQData['2DSTD']
+EQData['CLOSE_20D_shifted'] = EQData.groupby(['SYMBOL'])['CLOSE'].shift(20)
+EQData['CLOSE_365D_shifted'] = EQData.groupby(['SYMBOL'])['CLOSE'].shift(365)
+EQData['CLOSE_20D_shifted_percent']=100*(EQData['CLOSE']-EQData['CLOSE_20D_shifted'])/(EQData['CLOSE_20D_shifted'])
+
+EQData['CountofDaysinYearCummulative'] = EQData.groupby(['SYMBOL','Year'])['CLOSE'].cumcount().astype(int)
+
+##Moving average
+print("MA")
+EQData['5D_High']=EQData.groupby('SYMBOL',as_index=False,group_keys=False).apply(get_rolling,5,'HIGH','mean') #max
+EQData['5D_Low']=EQData.groupby('SYMBOL',as_index=False,group_keys=False).apply(get_rolling,5,'LOW','mean') #min
+EQData['20DMA']=EQData.groupby('SYMBOL',as_index=False,group_keys=False).apply(get_rolling,20,'CLOSE','mean')
+EQData['20D_High']=EQData.groupby('SYMBOL',as_index=False,group_keys=False).apply(get_rolling,20,'HIGH','max')
+EQData['20D_Low']=EQData.groupby('SYMBOL',as_index=False,group_keys=False).apply(get_rolling,20,'LOW','min')
+EQData['20D_Mid']=(EQData['20D_High']+EQData['20D_Low'])/2
+EQData['365D_High']=EQData.groupby('SYMBOL',as_index=False,group_keys=False).apply(get_rolling,365,'HIGH','max')
+EQData['365D_Low']=EQData.groupby('SYMBOL',as_index=False,group_keys=False).apply(get_rolling,365,'LOW','min')
+EQData['9DMA']=EQData.groupby('SYMBOL',as_index=False,group_keys=False).apply(get_rolling,9,'CLOSE','mean')
+EQData['20D_Volume']=EQData.groupby('SYMBOL',as_index=False,group_keys=False).apply(get_rolling,20,'TOTTRDQTY','mean')
+EQData['2D_Low']=EQData.groupby('SYMBOL',as_index=False,group_keys=False).apply(get_rolling,2,'CLOSE','min')
+EQData['2D_High']=EQData.groupby('SYMBOL',as_index=False,group_keys=False).apply(get_rolling,2,'CLOSE','max')
+EQData['20D_CLOSE_PERCENT']=EQData.groupby('SYMBOL',as_index=False,group_keys=False).apply(get_rolling,20,'CLOSE_PERCENT','sum')
+EQData['365D_Max20D_SHIFTED%_Drawdown']=EQData.groupby('SYMBOL',as_index=False,group_keys=False).apply(get_rolling,20,'CLOSE_20D_shifted_percent','min')
+EQData['365D_Max20D_SHIFTED%_MaxGain']=EQData.groupby('SYMBOL',as_index=False,group_keys=False).apply(get_rolling,20,'CLOSE_20D_shifted_percent','max')
+
+
+##Lifetime highs
+print("LH")
+EQData['Life_High']=EQData.groupby('SYMBOL').HIGH.cummax()
+EQData['Life_LOW']=EQData.groupby('SYMBOL').LOW.cummin()
+
+
+EQData['%Above_Life_LOW']=100*(EQData['CLOSE']-EQData['Life_LOW'])/(EQData['CLOSE'])
+EQData['%Below_Life_High']=100*(EQData['Life_High']-EQData['CLOSE'])/(EQData['CLOSE'])
+EQData['%Above_365D_LOW']=100*(EQData['CLOSE']-EQData['365D_Low'])/(EQData['CLOSE'])
+EQData['%Below_365D_High']=100*(EQData['365D_High']-EQData['CLOSE'])/(EQData['CLOSE'])
+
+##Pivot points
+EQData['P_LOW']=EQData.groupby(['SYMBOL'])['LOW'].shift(1)
+EQData['P_HIGH']=EQData.groupby(['SYMBOL'])['HIGH'].shift(1)
+EQData['P_CLOSE']=EQData.groupby(['SYMBOL'])['CLOSE'].shift(1)
+
+EQData['PP']=(EQData['P_HIGH']+EQData['P_LOW']+EQData['P_CLOSE'])/3 #Pivot point = (H + L + C) / 3
+EQData['S1']=2*EQData['PP']-EQData['P_HIGH'] #First support level (S1) = (2 * P) – H
+EQData['S2']=EQData['PP']-1*(EQData['P_HIGH']-EQData['P_LOW']) #Second support level (S2) = P – (H – L)
+EQData['S3']=EQData['PP']-2*(EQData['P_HIGH']-EQData['P_LOW']) #Third support level (S3) = P – 2*(H-L)
+EQData['S4']=EQData['PP']-3*(EQData['P_HIGH']-EQData['P_LOW']) #Third support level (S4) = P – 3*(H-L)
+EQData['S5']=EQData['PP']-4*(EQData['P_HIGH']-EQData['P_LOW']) #Third support level (S5) = P – 4*(H-L)
+EQData['R1']=2*EQData['PP']-EQData['P_LOW'] #First resistance level (R1) = (2 * P) – L
+EQData['R2']=EQData['PP']+1*(EQData['P_HIGH']-EQData['P_LOW']) #Second resistance level (R2) = P + (H – L)
+EQData['R3']=EQData['PP']+2*(EQData['P_HIGH']-EQData['P_LOW']) #Third resistance level (R3) = P + 2*(H – L)
+EQData['R4']=EQData['PP']+3*(EQData['P_HIGH']-EQData['P_LOW']) #Third resistance level (R4) = P + 3*(H – L)
+EQData['R5']=EQData['PP']+4*(EQData['P_HIGH']-EQData['P_LOW']) #Third resistance level (R5) = P + 4*(H – L)
+
+
+##PIVOT POINT RANK
+#EQData['20D_High'] 'Donchain high 20days
+#EQData['20D_Low'] ' Donchain low 20days
+EQData['PIVOT_Bulish_Rank']=np.where(EQData['CLOSE']>EQData['R1'], 1, 0)+np.where(EQData['CLOSE']>EQData['R2'], 1, 0)+np.where(EQData['CLOSE']>EQData['R3'], 1, 0)+np.where(EQData['CLOSE']>EQData['R4'], 1, 0)+np.where(EQData['CLOSE']>EQData['R5'], 1, 0)
+EQData['PIVOT_Bearish_Rank']=np.where(EQData['CLOSE']<EQData['S1'], 1, 0)+np.where(EQData['CLOSE']<EQData['S2'], 1, 0)+np.where(EQData['CLOSE']<EQData['S3'], 1, 0)+np.where(EQData['CLOSE']<EQData['S4'], 1, 0)+np.where(EQData['CLOSE']<EQData['S5'], 1, 0)
+
+
+##Donchain Channel Rank
+#EQData['20D_High'] 'Donchain high 20days
+#EQData['20D_Low'] ' Donchain low 20days
+#EQData['20D_Mid'] ' Donchain mid 20days
+EQData['DC_Bulish_Rank']=np.where(EQData['CLOSE']>EQData['20D_Mid'], 1, 0)+np.where(EQData['HIGH']==EQData['20D_High'], 1, 0)
+EQData['DC_Bearish_Rank']=np.where(EQData['CLOSE']<EQData['20D_Mid'], 1, 0)+np.where(EQData['LOW']==EQData['20D_Low'], 1, 0)
+
+##KEY INDICATOR NETWORK HEALTH
+#5Day Close
+EQData['NSE_BULLISH_CLOSE>5DMA_MAX']=np.where(EQData['CLOSE']>EQData['5D_High'], 1, 0)
+EQData['NSE_BEARISH_CLOSE<5DMA_MIN']=np.where(EQData['CLOSE']<EQData['5D_Low'], 1, 0)
+
+#PIVOT Close
+EQData['NSE_BULLISH_CLOSE>R1']=np.where(EQData['CLOSE']>EQData['R1'], 1, 0)
+EQData['NSE_BEARISH_CLOSE<S1']=np.where(EQData['CLOSE']<EQData['S1'], 1, 0)
+
+#DROP PIVOT MEASUREMENTS
+EQData.drop(columns=['P_LOW','P_HIGH','P_CLOSE','PP','S1','S2','S3','S4','S5','R1','R2','R3','R4','R5'],inplace=True)
+
+
+##To calculate the EQBullish values
+print("EQBA")
+EQData['EQBullish_CLOSE>20DMA']=np.where(EQData['CLOSE']>=EQData['20DMA'], 1, 0)
+EQData['EQBullish_LOW>20DMA']=np.where(EQData['LOW']>=EQData['20DMA'], 1, 0)
+EQData['EQBullish_High>20DMA']=np.where(EQData['HIGH']>=EQData['20DMA'], 1, -3)
+EQData['EQBullish_High=365D_High']=np.where(EQData['HIGH']==EQData['365D_High'], 3, 0)
+EQData['EQBullish_Vol>2_20D_Volume']=np.where(np.logical_and(EQData['TOTTRDQTY']>=2*EQData['20D_Volume'], EQData['UpwardMovement']>0), 1, 0)
+print("EQBA1")
+EQData['HIGH>2D_High_close>20DMA']=np.where(np.logical_and(EQData['HIGH']>=EQData['2D_High'], EQData['CLOSE']>=EQData['20DMA']), 1, 0)
+EQData['LOW>2D_Low_close>20DMA']=np.where(np.logical_and(EQData['LOW']>EQData['2D_Low'],EQData['CLOSE']>=EQData['20DMA']), 1, 0)
+EQData['CLOSE>CLOSE_20D_shifted']=np.where(EQData['CLOSE']>EQData['CLOSE_20D_shifted'], 1, 0)
+print("EQBA2")
+EQData['<5%_%Below_365D_High']=np.where(EQData['%Below_365D_High']<5, 2, 0)
+EQData['>20%Away_365D_High']=np.where(EQData['%Below_365D_High']>20, -3, 0)
+print("EQBA3")
+#EQData['RSI>60_CLOSE20Dshifted>5%']=np.where(np.logical_and(EQData['RSI']>=60, EQData['CLOSE_20D_shifted_percent']>3,EQData['CLOSE']>=EQData['20DMA']), 1, 0)
+EQData['RSI>60_CLOSE20Dshifted>5%']=np.where((EQData['RSI']>=60)&(EQData['CLOSE_20D_shifted_percent']>3)&(EQData['CLOSE']>=EQData['20DMA']), 1, 0)
+print("EQBA4")
+EQData['Close>BB20MA_CLOSE20Dshifted>5%']=np.where(np.logical_and(EQData['CLOSE']>=EQData['BB_HIGH_20MA_2STD'], EQData['CLOSE_20D_shifted_percent']>5), 1, 0)
+
+print("ULTRABULL")
+EQData['UltraBull_Vol_5']=EQData['EQBullish_CLOSE>20DMA']+EQData['EQBullish_LOW>20DMA']+EQData['EQBullish_High>20DMA']+EQData['EQBullish_Vol>2_20D_Volume']+EQData['HIGH>2D_High_close>20DMA']
+EQData['UltraBull_Vol_Low_6']=EQData['UltraBull_Vol_5']+EQData['LOW>2D_Low_close>20DMA']+EQData['EQBullish_High=365D_High']
+EQData['UltraBull_Vol_Low_1YRhigh_7']=EQData['UltraBull_Vol_Low_6']+EQData['<5%_%Below_365D_High']+EQData['>20%Away_365D_High']
+EQData['UltraBull_RSI_UPBB_BAND_8']=EQData['UltraBull_Vol_Low_1YRhigh_7']+EQData['RSI>60_CLOSE20Dshifted>5%']+EQData['Close>BB20MA_CLOSE20Dshifted>5%']
+print("ULTRABULLend")
+##----Choose which export we need to analyse in excel
+##To export the full table to csv
+###<-><-><-><-><-><-><->###EQData.to_csv(path+"combined_csv_processed_output.csv", index=False, encoding='utf-8-sig')
+
+##--To export the data as years_Excluding the first year for the purpose of 365 days max
+EQDataYear=EQData.Year.drop_duplicates().sort_values(ascending=True).reset_index(drop=True)
+EQData.to_csv(path+"LSE_Weekly_combined_csv_processed_output.csv", index=False, encoding='utf-8-sig')
+#for i in EQDataYear[1:]:
+#    EQData[EQData.Year == i].to_csv(path+i+"LSE_combined_csv_processed_output.csv", index=False, encoding='utf-8-sig')
+#To export the last 30 days table to csv
+#EQData[EQData.TIMESTAMP > datetime.datetime.now()- pd.to_timedelta("30day")].to_csv(path+"combined_csv_processed_output.csv", index=False, encoding='utf-8-sig')
+
+#To export the last 30 days for specific symbols to csv
+#EQData[((EQData.SYMBOL=='3MINDIA') | (EQData.SYMBOL=='ABCAPITAL'))&(EQData.TIMESTAMP > datetime.datetime.now()- pd.to_timedelta("30day" ))].to_csv(path+"combined_csv_processed_output.csv")
+
+Endtime=time.time()
+
+print("Starttime:",starttime,"\n","Endtime:",Endtime,"\n","DeltatimeSec:",Endtime-starttime,"\n","DeltatimeMin:",(Endtime-starttime)/60)
