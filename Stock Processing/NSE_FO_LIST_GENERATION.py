@@ -21,8 +21,8 @@ import time
 starttime=time.time()
 
 ##Main code
-os.chdir("C:/nse_download/fo_download/run2")  #run2 #2018-2020
-path='C:/nse_download/Parsed_Output/'
+os.chdir("D:/nse_download/fo_download/run2")  #run2 #2018-2020
+path='D:/nse_download/Parsed_Output/'
 #os.getcwd()
 
 extension = 'csv'

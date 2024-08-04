@@ -40,9 +40,9 @@ def get_rolling(group, freq, testa,funct):
 ##Main code
 #os.chdir("C:/nse_download/history/download/run3")
 #path='C:/Users/eamalok/Desktop/POWER  BI/Python coding/jupyter_test/'
-os.chdir("C:/nse_download/download")
-path='C:/nse_download/Weekly/'
-path2='C:/nse_download/Parsed_Output/'
+os.chdir("D:/nse_download/download")
+path='D:/nse_download/Weekly/'
+path2='D:/nse_download/Parsed_Output/'
 #os.getcwd()
 
 extension = 'csv'
@@ -52,7 +52,7 @@ combined_csv = pd.concat([pd.read_csv(f) for f in all_filenames],sort=False)
 
 ##To save the combined file to Specific folder removing last column
 #path='C:/Users/eamalok/Desktop/POWER  BI/Python coding/jupyter_test/'
-path='C:/nse_download/Weekly/'
+path='D:/nse_download/Weekly/'
 combined_csv=combined_csv.iloc[:,:-1]
 combined_csv['TIMESTAMP'] = pd.to_datetime(combined_csv['TIMESTAMP'])
 

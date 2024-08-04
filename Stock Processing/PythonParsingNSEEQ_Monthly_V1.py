@@ -44,8 +44,8 @@ def get_rolling(group, freq, testa,funct):
         return 0
 
 ##Main code
-os.chdir("C:/nse_download/download")
-path='C:/nse_download/Parsed_Output/'
+os.chdir("D:/nse_download/download")
+path='D:/nse_download/Parsed_Output/'
 #os.getcwd()
 
 #read csv file and drop off Week,Year

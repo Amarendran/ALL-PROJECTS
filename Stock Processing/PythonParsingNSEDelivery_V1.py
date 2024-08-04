@@ -29,14 +29,14 @@ def get_rolling(group, freq, testa,funct):
         return 0
 
 ##Main code
-os.chdir("C:/nse_download/download_withdelivery")
+os.chdir("D:/nse_download/download_withdelivery")
 
 extension = 'csv'
 all_filenames = [i for i in glob.glob('*.{}'.format(extension))]
 combined_csv = pd.concat([pd.read_csv(f) for f in all_filenames])
 
 ##To save the combined file to Specific folder
-path='C:/nse_download/Parsed_Output/'
+path='D:/nse_download/Parsed_Output/'
 combined_csv.to_csv(path+"combined_delivery_csv.csv", index=False, encoding='utf-8-sig')
 
 #to save one company
